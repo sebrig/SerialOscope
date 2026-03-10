@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+wheels/
+*.whl
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.installed.cfg
+
+# Environnements virtuels
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PyQt / Qt
+*.qmlc
+*.jsc
+*.pro.user
+*.qm
+
+# Données
+*.csv
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
