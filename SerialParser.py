@@ -16,7 +16,7 @@ class SerialParser:
 
     def parseNewValues(self):
         for data in self.__serial.getAllData():
-            print( "New data in parser : ", data )
+            #print( "New data in parser : ", data )
 
             for i in range(len(data)):
                 if i not in self.__columns:
