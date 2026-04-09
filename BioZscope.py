@@ -15,9 +15,9 @@ from Filtres import RealTime_ButterworthFilter
 
 fs = 2e3
 n_buffer = int(fs) 
-uart = SerialHandler("COM3", 921600)
+csv = CSVwritter( ["Qshunt","Ishunt","Qbioz","Ibioz"], "./Recordings/", "mcu_measures.csv" )
+uart = SerialHandler("COM3", 921600, csv)
 parser = SerialParser( uart, n_buffer )
-csv_writter = None # CSVwritter( ["Amplitude"], "./Recordings/", "amplitude_respiration.csv" )
 
 def calcAmplitude( p_re, p_im ):
     return np.sqrt( p_re**2 + p_im**2 )
@@ -32,18 +32,18 @@ def calcAsyncAmplitude( p_shunt, p_bioz ):
     return amplitude
 
 def calcAsyncPhase( p_Qshunt, p_Ishunt, p_Qbioz, p_Ibioz ):
-    # amplitude du signal trop faible pour retourner une info fiable
-    if abs(p_Qbioz) < 10 and abs(p_Ibioz) < 10:
-        return 0
+    phase_bioz = 0
 
-    phase_shunt  = np.rad2deg( np.arctan2(p_Qshunt, p_Ishunt) )
-    phase_bioz  = np.rad2deg( np.arctan2(p_Qbioz, p_Ibioz) ) - phase_shunt
-    # print( f"phase = {phase_bioz:00.2f} | [ {p_Qshunt}, {p_Ishunt}, {p_Qbioz}, {abs(p_Ibioz)} ]" )
-    
+    # amplitude du signal trop faible pour retourner une info fiable
+    if abs(p_Qbioz) > 10 and abs(p_Ibioz) > 10:
+        phase_shunt  = np.rad2deg( np.arctan2(p_Qshunt, p_Ishunt) )
+        phase_bioz  = np.rad2deg( np.arctan2(p_Qbioz, p_Ibioz) ) - phase_shunt
+        # print( f"phase = {phase_bioz:00.2f} | [ {p_Qshunt}, {p_Ishunt}, {p_Qbioz}, {abs(p_Ibioz)} ]" )
+
     return phase_bioz
 
 class ComputedChannel:
-    def __init__(self, p_queues: list[deque], p_func, p_max: int = 1000):
+    def __init__(self, p_queues: list[deque], p_func, p_max: int = 1000 ):
         self.__queues = p_queues
         self.__func = p_func
         self.__result = deque(maxlen=p_max)
@@ -81,13 +81,14 @@ if __name__=="__main__":
     Ibioz = ParserColumnHandler( parser, 2 )
     Qbioz = ParserColumnHandler( parser, 3 )
 
-    amplitude_lpf = RealTime_ButterworthFilter(p_cutoff=10, p_fs=fs)
-    phase_lpf = RealTime_ButterworthFilter(p_cutoff=10, p_fs=fs)
+    amplitude_lpf = RealTime_ButterworthFilter(p_cutoff=25, p_fs=fs)
+    phase_lpf = RealTime_ButterworthFilter(p_cutoff=25, p_fs=fs)
 
     # amplitude = ComputedChannel(I.getQueue(), Q.getQueue(), calcAmplitude)
     amplitude = ComputedChannel(
         [Ibioz.getQueue(), Qbioz.getQueue()],
-        lambda re, im: amplitude_lpf.filter(calcAsyncAmplitude(re, im)),
+        # lambda re, im: amplitude_lpf.filter(calcAsyncAmplitude(re, im)),
+        lambda re, im : amplitude_lpf.filter(calcAsyncAmplitude( re, im )),
         p_max=n_buffer
     )
 
@@ -95,7 +96,8 @@ if __name__=="__main__":
     phase = ComputedChannel(
         [Ishunt.getQueue(), Qshunt.getQueue(),
         Ibioz.getQueue(), Qbioz.getQueue()],
-        lambda Qshunt, Ishunt, Qbioz, Ibioz: phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
+        # lambda Qshunt, Ishunt, Qbioz, Ibioz: phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
+        lambda Qshunt, Ishunt, Qbioz, Ibioz : phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
         p_max=n_buffer
     )
 
@@ -109,7 +111,7 @@ if __name__=="__main__":
     parse_timer.start(50)
 
     window1 = QMainWindow()
-    widget1 = QScope([( "Amplitude", amplitude.getQueue() )], csv_writter)
+    widget1 = QScope([( "Amplitude", amplitude.getQueue() )])
     window1.setCentralWidget(widget1)
     window1.setWindowTitle("Oscilloscope 1")
     window1.resize(1200, 600)
@@ -126,12 +128,16 @@ if __name__=="__main__":
     widget2.start()
 
     try:
+        close_timer = QTimer()
+        close_timer.setSingleShot(True)
+        close_timer.timeout.connect(app.quit)
+        close_timer.start(95_000)  # 10 secondes
         sys.exit(app.exec())
     finally:
         uart.stopReadingProcess()
 
-        if csv_writter is not None:
-            csv_writter.closeCSVWriter()
-        
+        if csv is not None:
+            csv.closeCSVWriter()
+
         widget1.stop()
         widget2.stop()

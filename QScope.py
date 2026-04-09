@@ -14,7 +14,7 @@ from SerialParser import SerialParser, ParserColumnHandler
 class QScope(QWidget):
     __COLORS = ['blue', 'red', 'green', 'yellow', 'cyan', 'magenta', 'white', 'orange']
 
-    def __init__(self, p_channels : list[tuple[str, deque]], p_csv_riter : CSVwritter = None ):
+    def __init__(self, p_channels : list[tuple[str, deque]] ):
         """
         p_parser  : SerialParser
         p_channels : liste de tuples (nom, deque) ex: [("shunt1", ma_deque), ...]
@@ -50,18 +50,7 @@ class QScope(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_plot)
 
-        self.__csv_writer : CSVwritter = p_csv_riter
-
     def update_plot(self):
-        if self.__csv_writer is not None:
-            # écrire toutes les nouvelles valeurs
-
-            # checker pour le canal avec le moins de valeurs
-            n = min(len(data) for _, data in self.__channels)
-            for i in range(n):
-                row = [data[i] for _, data in self.__channels]
-                self.__csv_writer.writeColumn(row)
-
         for i, (_, data) in enumerate(self.__channels):
             self.__curves[i].setData(data)
 

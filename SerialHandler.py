@@ -1,13 +1,14 @@
 import serial
 from multiprocessing import Process, Queue, Value
 from queue import Empty
+from CSVwritter import CSVwritter
 
 class SerialHandler:
     """
     Classe permettant de rececvoir des paquets python
     """
 
-    def __init__(self, p_com_port : str,  p_baudrate:int=115200 ):
+    def __init__(self, p_com_port : str,  p_baudrate:int=115200, p_csv_writer : CSVwritter = None ):
         self.__com_port = p_com_port
         self.__baudrate = p_baudrate
         self.__serial_object = None
@@ -15,6 +16,11 @@ class SerialHandler:
         self.__reading_queue = Queue()
         self.__running_flag = Value('b', False)
         self.__reading_process = None
+
+        self.__csv_writer = p_csv_writer
+
+    def setCSVWriter(self, p_csv_writer):
+        self.__csv_writer = p_csv_writer
 
     def connect(self) -> bool:
         """
@@ -80,7 +86,12 @@ class SerialHandler:
         items = []
         while True:
             try:
-                items.append(self.__reading_queue.get_nowait())
+                data = self.__reading_queue.get_nowait() 
+                items.append( data )
+                
+                if self.__csv_writer:
+                    self.__csv_writer.writeColumn( data )
+
             except Empty:
                 break
         return items
@@ -102,11 +113,18 @@ class SerialHandler:
             if self.__reading_process.is_alive():
                 self.__reading_process.terminate()
                 self.__reading_process.join()
+    
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['_SerialHandler__csv_writer'] = None  # ignorer pour pickle
+        return state
 
 if __name__=="__main__":
     import time
 
-    uart = SerialHandler( "COM3", p_baudrate=921600 )
+    csv = CSVwritter(['_','_','_','_'], "./Recordings",)
+
+    uart = SerialHandler( "COM3", p_baudrate=921600, p_csv_writer=csv )
     uart.startReadingProcess()
 
     start = time.time()
