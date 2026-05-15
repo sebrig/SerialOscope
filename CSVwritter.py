@@ -21,11 +21,15 @@ class CSVwritter:
 
         print( f"Ouverture du fichier {self.__directory+self.__file_name}" )
 
-        self.__f = open(
-            self.__directory+self.__file_name,
-            'w',
-            newline=''
-        )
+        try:
+            self.__f = open(
+                self.__directory+self.__file_name,
+                'w',
+                newline=''
+            )
+        except Exception as e:
+            print( e )
+            exit()
 
         # objet writer pour ecrire dans le fichier CSV
         self.writer = csv.writer(self.__f)

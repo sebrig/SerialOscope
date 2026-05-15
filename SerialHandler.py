@@ -1,7 +1,7 @@
 import serial
 from multiprocessing import Process, Queue, Value
 from queue import Empty
-from CSVwritter import CSVwritter
+from .CSVwritter import CSVwritter
 
 class SerialHandler:
     """

@@ -5,11 +5,12 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 import numpy as np
 import sys
 from time import sleep
-from SerialHandler import SerialHandler
-from CSVwritter import CSVwritter
-from collections import deque
 from multiprocessing import Queue
-from SerialParser import SerialParser, ParserColumnHandler
+from collections import deque
+
+from .SerialHandler import SerialHandler
+from .CSVwritter import CSVwritter
+from .SerialParser import SerialParser, ParserColumnHandler
 
 class QScope(QWidget):
     __COLORS = ['blue', 'red', 'green', 'yellow', 'cyan', 'magenta', 'white', 'orange']
@@ -65,6 +66,10 @@ class QScope(QWidget):
 
 
 if __name__ == '__main__':
+    from pathlib import Path
+    BASE_DIR = Path(__file__).parent 
+    config_path = BASE_DIR / "data" / "config.json"
+    
     uart = SerialHandler("COM3", 921600)
     parser = SerialParser(uart, 1000)
 

@@ -1,4 +1,4 @@
-from SerialHandler import SerialHandler
+from .SerialHandler import SerialHandler
 from collections import deque
 
 class SerialParser:
