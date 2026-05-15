@@ -124,12 +124,13 @@ if __name__=="__main__":
 
     csv = CSVwritter(['_','_','_','_'], "./Recordings",)
 
-    uart = SerialHandler( "COM3", p_baudrate=921600, p_csv_writer=csv )
+    uart = SerialHandler( "COM3", p_baudrate=112500, p_csv_writer=csv )
     uart.startReadingProcess()
 
     start = time.time()
-    while time.time()-start < 3:
+    while time.time()-start < 60:
         data = uart.getAllData()
-        print( "Data popped from process : ", data)
+        if len(data) != 0:
+            print( "Data popped from process : ", data)
 
     uart.stopReadingProcess()

@@ -13,17 +13,44 @@ from multiprocessing import Queue
 from SerialParser import SerialParser, ParserColumnHandler
 from Filtres import RealTime_ButterworthFilter
 
-fs = 2e3
+fs = 200
 n_buffer = int( fs )
-csv = CSVwritter( ["Qshunt","Ishunt","Qbioz","Ibioz"], "./Recordings/" ) #, "mcu_measures.csv" )
-uart = SerialHandler("COM3", 921600, csv)
+csv = CSVwritter( ["Q","I","current_max"], "./Recordings/", "mcu_measures.csv" )
+uart = SerialHandler("COM3", 112500, csv)
 parser = SerialParser( uart, n_buffer )
 
-def calcAmplitude( p_re, p_im ):
-    return np.sqrt( p_re**2 + p_im**2 )
 
-def calcPhase( p_re, p_im ):
-    return np.rad2deg( np.arctan2( p_im, p_re ) )
+def calcAmplitude( p_re, p_im, K ):
+    calcAmplitude.counter += 1
+
+    amplitude = np.sqrt( p_re**2 + p_im**2 ) * K
+    calcAmplitude.sum_mean += amplitude
+
+    if calcAmplitude.counter % calcAmplitude.mean_window == 0:
+        print( f"amplitude =    {calcAmplitude.sum_mean/calcAmplitude.mean_window:00.3f}" )
+        calcAmplitude.sum_mean = 0
+
+    return amplitude
+
+calcAmplitude.counter = 0
+calcAmplitude.sum_mean = 0
+calcAmplitude.mean_window = fs
+
+def calcPhase( p_re, p_im, offset ):
+    calcPhase.counter += 1
+
+    phase = np.rad2deg( np.arctan2( p_im, p_re ) ) + offset
+    calcPhase.sum_mean += phase
+    
+    if calcPhase.counter % calcPhase.mean_window == 0:
+        print( f"phase =        {calcPhase.sum_mean/calcPhase.mean_window:00.3f}" )
+        calcPhase.sum_mean = 0
+
+    return phase
+
+calcPhase.counter = 0
+calcPhase.sum_mean = 0
+calcPhase.mean_window = fs
 
 def calcAsyncAmplitude( p_shunt, p_bioz ):
     amplitude = np.abs( p_bioz/(p_shunt+1e-12) ) * 1e3 * 0.5
@@ -77,34 +104,32 @@ def on_parse():
     phase.update()
 
 if __name__=="__main__":
-    parser.setColumnID(0, "Ishunt")
-    parser.setColumnID(1, "Qshunt")
-    parser.setColumnID(2, "Ibioz")
-    parser.setColumnID(3, "Qbioz")
+    parser.setColumnID(0, "Q")
+    parser.setColumnID(1, "I")
+    parser.setColumnID(2, "current_max")
 
-    Ishunt = ParserColumnHandler( parser, 0 )
-    Qshunt = ParserColumnHandler( parser, 1 )
-    Ibioz = ParserColumnHandler( parser, 2 )
-    Qbioz = ParserColumnHandler( parser, 3 )
+    Q = ParserColumnHandler( parser, 0 )
+    I = ParserColumnHandler( parser, 1 )
+    current_max = ParserColumnHandler( parser, 2 )
 
-    amplitude_lpf = RealTime_ButterworthFilter(p_cutoff=25, p_fs=fs)
-    phase_lpf = RealTime_ButterworthFilter(p_cutoff=25, p_fs=fs)
+    amplitude_lpf = RealTime_ButterworthFilter(p_cutoff=1, p_fs=fs)
+    phase_lpf = RealTime_ButterworthFilter(p_cutoff=1, p_fs=fs)
 
     # amplitude = ComputedChannel(I.getQueue(), Q.getQueue(), calcAmplitude)
     amplitude = ComputedChannel(
-        [Ibioz.getQueue(), Qbioz.getQueue()],
+        [I.getQueue(), Q.getQueue()],
         # lambda re, im: amplitude_lpf.filter(calcAsyncAmplitude(re, im)),
-        lambda re, im : amplitude_lpf.filter(calcAsyncAmplitude( re, im )),
-        # lambda re, im : calcAsyncAmplitude( re, im ),
+        # lambda re, im : amplitude_lpf.filter(calcAsyncAmplitude( re, im )),
+        lambda re, im : calcAmplitude( re, im, 45.666e-3 ),
         p_max=n_buffer
     )
 
     # phase = ComputedChannel(I.getQueue(), Q.getQueue(), calcPhase)
     phase = ComputedChannel(
-        [Ishunt.getQueue(), Qshunt.getQueue(),
-        Ibioz.getQueue(), Qbioz.getQueue()],
+        [Q.getQueue(), I.getQueue()],
         # lambda Qshunt, Ishunt, Qbioz, Ibioz: phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
-        lambda Qshunt, Ishunt, Qbioz, Ibioz : phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
+        # lambda Qshunt, Ishunt, Qbioz, Ibioz : phase_lpf.filter(calcAsyncPhase( Qshunt, Ishunt, Qbioz, Ibioz )),
+        lambda re, im : calcPhase( re, im, -3.481 ),
         p_max=n_buffer
     )
 
