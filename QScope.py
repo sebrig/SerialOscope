@@ -66,9 +66,6 @@ class QScope(QWidget):
 
 
 if __name__ == '__main__':
-    from pathlib import Path
-    BASE_DIR = Path(__file__).parent 
-    config_path = BASE_DIR / "data" / "config.json"
     
     uart = SerialHandler("COM3", 921600)
     parser = SerialParser(uart, 1000)
